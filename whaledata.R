@@ -1,6 +1,9 @@
 library(raster)
 library(gdalUtils)
 library(gdal)
+library(foreach)
+library(doParallel)
+
 
 setwd("F:/whales")
 
@@ -14,33 +17,64 @@ allfolders <- list.dirs(parent.folder)
 
 #open the feb files
 #make all files into a brick 
-febfolders <- allfolders[c(3,6,9,12,15,18)]
-februaries <- raster()
-for(i in 1:length(febfolders)){
+febfolders <- allfolders[c(3*(1:17))]
+cores<- detectCores()-1
+cl <- makeCluster(cores, output="") 
+registerDoParallel(cl)
+foreach::foreach(i=1:length(febfolders), .packages=c("raster")) %dopar% {
+#for(i in 1:length(febfolders)){
   febyrfiles <- list.files(febfolders[[i]],full.names=T)
+  februaries <- raster()
   for(j in 1:length(febyrfiles)){
-     r <- raster(febyrfiles[[j]])
+     r <- raster(febyrfiles[[j]],varname="analysed_sst")
      februaries <- stack(februaries,r)
   }
+  #get mean feb SST per year
+  calc(februaries,fun=function(x){mean(x,na.rm=T)},filename=paste0("F:/whales/ESA_SST/ESA_feb_mean_",1984+i,".tif"))
 }
-#get the mean february SST
-esafeb <- calc(februaries,fun=function(x){mean(x,na.rm=T)},filename="F:/whales/ESA_SST/ESA_feb_mean.tif")
+stopCluster(cl)
+
+#get the 1985-2001 mean february SST 
+febmeanyrfiles <- list.files(parent.folder,pattern="feb_mean",full.names=T)
+febyears <- raster()
+for(i in 1:length(febmeanyrfiles)){
+  r <- raster(febmeanyrfiles[[i]])
+  febyears <- stack(febyears,r)
+}
+
+esafeb <- calc(febyears,fun=function(x){mean(x,na.rm=T)},filename="F:/whales/ESA_SST/ESA_feb_mean.tif")
 esafebc <- esafeb-273.15
 writeRaster(esafebc, filename="F:/whales/ESA_SST/ESA_feb_meanC.tif")
 
 #open the aug files
 #make all files into a brick 
-augfolders <- allfolders[c(4,7,10,13,16,19)]
-augusts <- raster()
-for(i in 1:length(augfolders)){
+augfolders <- allfolders[c(3*(1:17)+1)]
+cores<- detectCores()-1
+cl <- makeCluster(cores, output="") 
+registerDoParallel(cl)
+foreach::foreach(i=1:length(augfolders), .packages=c("raster")) %dopar% {
+#for(i in 1:length(augfolders)){
   augyrfiles <- list.files(augfolders[[i]],full.names=T)
+  augusts <- raster()
   for(j in 1:length(augyrfiles)){
-    r <- raster(augyrfiles[[j]])
+    r <- raster(augyrfiles[[j]],varname="analysed_sst")
     augusts <- stack(augusts,r)
   }
+  #get mean aug SST per year
+  calc(augusts,fun=function(x){mean(x,na.rm=T)},filename=paste0("F:/whales/ESA_SST/ESA_aug_mean_",1984+i,".tif"))
 }
-#get the mean august SST
-esaaug <- calc(augusts,fun=function(x){mean(x,na.rm=T)},filename="F:/whales/ESA_SST/ESA_aug_mean.tif")
+stopCluster(cl)
+
+#get the 1985-2001 mean august SST 
+augmeanyrfiles <- list.files(parent.folder,pattern="aug_mean",full.names=T)
+augyears <- raster()
+for(i in 1:length(augmeanyrfiles)){
+  r <- raster(augmeanyrfiles[[i]])
+  augyears <- stack(augyears,r)
+}
+
+#get the 1985-2001 mean august SST 
+esaaug <- calc(augyears,fun=function(x){mean(x,na.rm=T)},filename="F:/whales/ESA_SST/ESA_aug_mean.tif")
 esaaugc <- esaaug-273.15
 writeRaster(esaaugc, filename="F:/whales/ESA_SST/ESA_aug_meanC.tif")
 
@@ -86,13 +120,18 @@ for(i in 1:length(modelnames)){
   #extract just the febs
   febstack <- stack(r8501[[febs[1:17]]])
   #calculate mean feb temp for 1985-2001 (base period) for each model. save
-  calc(febstack,fun=mean,filename=paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_feb.tif"))
+  febbase <- calc(febstack,fun=mean)#,filename=paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_feb.tif"))
+  #do focal statistics to fill in coastal gaps
+  febbasef <- focal(febbase,w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T,
+                     filename=paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_feb_focal.tif"))
   
   #extract just the augs
   augstack <- stack(r8501[[augs[1:17]]])
   #calculate mean aug temp for 1985-2001 (base period) for each model. save
-  calc(augstack,fun=mean,filename=paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_aug.tif"))
-
+  augbase <- calc(augstack,fun=mean)#,filename=paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_aug.tif"))
+  #do focal statistics to fill in coastal gaps
+  augbasef <- focal(augbase,w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T,
+                    filename=paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_aug_focal.tif"))
 }
 
 
@@ -109,7 +148,7 @@ febs <- c(2+12*(0:85)) #86 years between 2015-2100
 augs <- c(8+12*(0:85))
 
 #run CAMS-CSM1-0 separately - only goes up to 2099, not 2100. use febstack <- stack(r[[febs[1:85]]]) and augstack <- stack(r[[augs[1:86]]])
-for(i in 1:length(modelnames)){
+for(i in  1:length(modelnames)){
   modelfiles <- list.files(parent.folder, pattern=modelnames[i],full.names=T)
   #make single brick with all model years 2015-2100
   r <- brick(modelfiles[1],varname="tos")
@@ -126,9 +165,14 @@ for(i in 1:length(modelnames)){
     febdecadal <- stack(febdecadal,decademean)
   }
   #calculate delta  - difference between model hist base period and decadal mean. save
-  febbase <- raster(paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_feb.tif"))
-  overlay(febdecadal,febbase, fun=function(x,y,na.rm=T){return(x-y)},
-                      filename=paste0("F:/whales/cmip6/ssp245/",modelnames[i],"_decadedelta_feb.tif"))
+  febbase <- raster(paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_feb_focal.tif"))
+  febdeca <- raster()
+  for(a in 1:nlayers(febdecadal)){
+    f <- focal(febdecadal[[a]],w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T)
+    febdeca <- stack(febdeca,f)
+  }
+  overlay(febdeca,febbase, fun=function(x,y,na.rm=T){return(x-y)},
+                      filename=paste0("F:/whales/cmip6/ssp245/",modelnames[i],"_decadedelta_feb_focal.tif"))
   
   #extract just the augs. this will be aug temps 2015-2100 (rasterbrick with 86 layers)
   augstack <- stack(r[[augs[1:86]]])
@@ -143,20 +187,37 @@ for(i in 1:length(modelnames)){
     augdecadal <- stack(augdecadal,decademean)
   }
   #calculate delta  - difference between model hist base period and decadal mean. save
-  augbase <- raster(paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_aug.tif"))
-  overlay(augdecadal,augbase, fun=function(x,y,na.rm=T){return(x-y)},
-                      filename=paste0("F:/whales/cmip6/ssp245/",modelnames[i],"_decadedelta_aug.tif"))
+  augbase <- raster(paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_aug_focal.tif"))
+  augdeca <- raster()
+  for(b in 1:nlayers(augdecadal)){
+    f <- focal(augdecadal[[b]],w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T)
+    augdeca <- stack(augdeca,f)
+  }
+  overlay(augdeca,augbase, fun=function(x,y,na.rm=T){return(x-y)},
+                      filename=paste0("F:/whales/cmip6/ssp245/",modelnames[i],"_decadedelta_aug_focal.tif"))
 }
 
 
 #calculate model median delta
 #for feb
-febmodelfiles <- list.files("F:/whales/cmip6/ssp245",pattern="feb",full.names=T)
+febmodelfiles <- list.files("F:/whales/cmip6/ssp245",pattern="feb_focal",full.names=T)
 for(i in 1:length(febmodelfiles)){
   object <- paste0("feb245.", i)
   r <- brick(febmodelfiles[i],varname="tos")
   assign(object,r)
 }
+febmodels <- lapply(paste0('feb245.',1:length(febmodelfiles)),get)
+#find minimum & maximum delta models
+febdataframe <- data.frame()
+for(i in 1:19){
+  crop <- crop(febmodels[[i]][[9]],extent(180,230,2,37))
+  meandelta <- cellStats(crop,stat=mean)
+  x <- data.frame(model = i, mean = meandelta)
+  febdataframe <- rbind(x,febdataframe)
+}
+#min = model3
+#max = model11
+
 deltafeb <- overlay(feb245.1,feb245.2,feb245.3,feb245.4,feb245.5,feb245.6,feb245.7,feb245.8,feb245.9,feb245.10,
         feb245.11,feb245.12,feb245.13,feb245.14,feb245.15,feb245.16,feb245.17,feb245.18,feb245.19,
         fun=function(x){median(x,na.rm=T)},filename="F:/whales/cmip6/ssp245/modelmedian_decadedelta_feb.tif")
@@ -169,12 +230,24 @@ writeRaster(deltafebr,filename="F:/whales/cmip6/ssp245/modelmedian_decadedelta_f
 
 
 #for aug
-augmodelfiles <- list.files("F:/whales/cmip6/ssp245",pattern="aug",full.names=T)
+augmodelfiles <- list.files("F:/whales/cmip6/ssp245",pattern="aug_focal",full.names=T)
 for(i in 1:length(augmodelfiles)){
   object <- paste0("aug245.", i)
   r <- brick(augmodelfiles[i])
   assign(object,r)
 }
+augmodels <- lapply(paste0('aug245.',1:length(augmodelfiles)),get)
+#find minimum & maximum delta models
+augdataframe <- data.frame()
+for(i in 1:19){
+  crop <- crop(febmodels[[i]][[9]],extent(180,230,2,37))
+  meandelta <- cellStats(crop,stat=mean)
+  x <- data.frame(model = i, mean = meandelta)
+  augdataframe <- rbind(x,augdataframe)
+}
+#min = model11
+#max = model16
+
 deltaaug <- overlay(aug245.1,aug245.2,aug245.3,aug245.4,aug245.5,aug245.6,aug245.7,aug245.8,aug245.9,aug245.10,
         aug245.11,aug245.12,aug245.13,aug245.14,aug245.15,aug245.16,aug245.17,aug245.18,aug245.19,
         fun=function(x){median(x,na.rm=T)},filename="F:/whales/cmip6/ssp245/modelmedian_decadedelta_aug.tif")
@@ -188,14 +261,27 @@ writeRaster(deltaaugr,filename="F:/whales/cmip6/ssp245/modelmedian_decadedelta_a
 
 
 
-#add delta to avhrr to get downscaled avhrr sst
+#add delta to esa to get downscaled esa sst
 #for feb
 febsst245 <- overlay(esafebc,deltafebr, fun=sum,filename="F:/whales/cmip6/ssp245/FebSST_ssp245.tif")
 #for aug
 augsst245 <- overlay(esaaugc,deltaaugr, fun=sum,filename="F:/whales/cmip6/ssp245/AugSST_ssp245.tif")
 
+#add min model (model3) delta to feb esa 
+feb245.3d <- disaggregate(feb245.3, fact=20)
+i_brick1 <- crop(feb245.3d,extent(180,359.5,-90,90))
+i_brick2 <- crop(feb245.3d,extent(-0.5,180,-90,90))
+extent(i_brick1) <- c(-180,-0.5,-90,90)
+feb245.3dm <- merge(i_brick1,i_brick2)
+febmin245 <- overlay(esafebc,feb245.3dm,fun=sum,filename="F:/whales/cmip6/ssp245/FebSST_ssp245_model3_min.tif")
 
-
+#add max model (model11) delta to feb esa
+feb245.11d <- disaggregate(feb245.11, fact=20)
+i_brick1 <- crop(feb245.11d,extent(180,359.5,-90,90))
+i_brick2 <- crop(feb245.11d,extent(-0.5,180,-90,90))
+extent(i_brick1) <- c(-180,-0.5,-90,90)
+feb245.11dm <- merge(i_brick1,i_brick2)
+febmax245 <- overlay(esafebc,feb245.11dm,fun=sum,filename="F:/whales/cmip6/ssp245/FebSST_ssp245_model11_max.tif")
 
 
 
@@ -211,7 +297,7 @@ febs <- c(2+12*(0:85)) #86 years between 2015-2100
 augs <- c(8+12*(0:85))
 
 #run CAMS-CSM1-0 separately - only goes up to 2099, not 2100. use febstack <- stack(r[[febs[1:85]]]) and augstack <- stack(r[[augs[1:86]]])
-for(i in 16:length(modelnames)){
+for(i in 1:length(modelnames)){
   modelfiles <- list.files(parent.folder, pattern=modelnames[i],full.names=T)
   #make single brick with all model years 2015-2100
   r <- brick(modelfiles[1],varname="tos")
@@ -228,9 +314,14 @@ for(i in 16:length(modelnames)){
     febdecadal <- stack(febdecadal,decademean)
   }
   #calculate delta  - difference between model hist base period and decadal mean. save
-  febbase <- raster(paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_feb.tif"))
-  overlay(febdecadal,febbase, fun=function(x,y,na.rm=T){return(x-y)},
-          filename=paste0("F:/whales/cmip6/ssp585/",modelnames[i],"_decadedelta_feb.tif"))
+  febbase <- raster(paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_feb_focal.tif"))
+  febdeca <- raster()
+  for(a in 1:nlayers(febdecadal)){
+    f <- focal(febdecadal[[a]],w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T)
+    febdeca<-stack(febdeca,f)
+  }
+  overlay(febdeca,febbase, fun=function(x,y,na.rm=T){return(x-y)},
+          filename=paste0("F:/whales/cmip6/ssp585/",modelnames[i],"_decadedelta_feb_focal.tif"),overwrite=T)
   
   #extract just the augs. this will be aug temps 2015-2100 (rasterbrick with 86 layers)
   augstack <- stack(r[[augs[1:86]]])
@@ -244,55 +335,98 @@ for(i in 16:length(modelnames)){
     decademean <- calc(decade,fun=mean,na.rm=T)
     augdecadal <- stack(augdecadal,decademean)
   }
+  
   #calculate delta  - difference between model hist base period and decadal mean. save
-  augbase <- raster(paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_aug.tif"))
-  overlay(augdecadal,augbase, fun=function(x,y,na.rm=T){return(x-y)},
-          filename=paste0("F:/whales/cmip6/ssp585/",modelnames[i],"_decadedelta_aug.tif"))
+  augbase <- raster(paste0("F:/whales/cmip6/hist/",modelnames[i], "_basesst_aug_focal.tif"))
+  augdeca <- raster()
+  for(b in 1:nlayers(augdecadal)){
+    f <- focal(augdecadal[[b]],w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T)
+    augdeca <- stack(augdeca,f)
+  }
+  overlay(augdeca,augbase, fun=function(x,y,na.rm=T){return(x-y)},
+          filename=paste0("F:/whales/cmip6/ssp585/",modelnames[i],"_decadedelta_aug_focal.tif"),overwrite=T)
 }
 
 #calculate model median delta
 #for feb
-febmodelfiles <- list.files("F:/whales/cmip6/ssp585",pattern="feb",full.names=T)
+febmodelfiles <- list.files("F:/whales/cmip6/ssp585",pattern="feb_focal",full.names=T)
 for(i in 1:length(febmodelfiles)){
   object <- paste0("feb585.", i)
   r <- brick(febmodelfiles[i])
   assign(object,r)
 }
+febmodels <- lapply(paste0('feb585.',1:length(febmodelfiles)),get)
+#find minimum & maximum delta models
+febdataframe <- data.frame()
+for(i in 1:18){
+  crop <- crop(febmodels[[i]][[9]],extent(180,230,2,37))
+  meandelta <- cellStats(crop,stat=mean)
+  x <- data.frame(model = i, mean = meandelta)
+  febdataframe <- rbind(x,febdataframe)
+}
+#min = model3
+#max = model4
+
 deltafeb <- overlay(feb585.1,feb585.2,feb585.3,feb585.4,feb585.5,feb585.6,feb585.7,feb585.8,feb585.9,feb585.10,
                     feb585.11,feb585.12,feb585.13,feb585.14,feb585.15,feb585.16,feb585.17,feb585.18,
-                    fun=function(x){median(x,na.rm=T)},filename="F:/whales/cmip6/ssp585/modelmedian_decadedelta_feb.tif")
+                    fun=function(x){median(x,na.rm=T)},filename="F:/whales/cmip6/ssp585/modelmedian_decadedelta_feb.tif",overwrite=T)
 deltafebd <- disaggregate(deltafeb, fact=20)
 i_brick1 <- crop(deltafebd,extent(180,359.5,-90,90))
 i_brick2 <- crop(deltafebd,extent(-0.5,180,-90,90))
 extent(i_brick1) <- c(-180,-0.5,-90,90)
 deltafebr <- merge(i_brick1,i_brick2)
-writeRaster(deltafebr,filename="F:/whales/cmip6/ssp585/modelmedian_decadedelta_febr.tif")
+writeRaster(deltafebr,filename="F:/whales/cmip6/ssp585/modelmedian_decadedelta_febr.tif",overwrite=T)
 
 #for aug
-augmodelfiles <- list.files("F:/whales/cmip6/ssp585",pattern="aug",full.names=T)
+augmodelfiles <- list.files("F:/whales/cmip6/ssp585",pattern="aug_focal",full.names=T)
 for(i in 1:length(augmodelfiles)){
   object <- paste0("aug585.", i)
   r <- brick(augmodelfiles[i])
   assign(object,r)
 }
+augmodels <- lapply(paste0('aug585.',1:length(febmodelfiles)),get)
+# #find minimum & maximum delta models
+# augdataframe <- data.frame()
+# for(i in 1:18){
+#   crop <- crop(augmodels[[i]][[9]],extent(200,210,17,24))
+#   meandelta <- cellStats(crop,stat=mean)
+#   x <- data.frame(model = i, mean = meandelta)
+#   augdataframe <- rbind(x,augdataframe)
+# }
+# #min = model
+# #max = model
 deltaaug <- overlay(aug585.1,aug585.2,aug585.3,aug585.4,aug585.5,aug585.6,aug585.7,aug585.8,aug585.9,aug585.10,
                     aug585.11,aug585.12,aug585.13,aug585.14,aug585.15,aug585.16,aug585.17,aug585.18,
-                    fun=function(x){median(x,na.rm=T)},filename=paste0("F:/whales/cmip6/ssp585/modelmedian_decadedelta_aug.tif"))
+                    fun=function(x){median(x,na.rm=T)},filename=paste0("F:/whales/cmip6/ssp585/modelmedian_decadedelta_aug.tif"),overwrite=T)
 deltaaugd <- disaggregate(deltaaug, fact=20)
 i_brick1 <- crop(deltaaugd,extent(180,359.5,-90,90))
 i_brick2 <- crop(deltaaugd,extent(-0.5,180,-90,90))
 extent(i_brick1) <- c(-180,-0.5,-90,90)
 deltaaugr <- merge(i_brick1,i_brick2)
-writeRaster(deltaaugr,filename="F:/whales/cmip6/ssp585/modelmedian_decadedelta_augr.tif")
+writeRaster(deltaaugr,filename="F:/whales/cmip6/ssp585/modelmedian_decadedelta_augr.tif",overwrite=T)
 
 
 #add delta to esa to get downscaled esa sst
 #for feb
-febsst585 <- overlay(esafebc,deltafebr, fun=sum,filename="F:/whales/cmip6/ssp585/FebSST_ssp585.tif")
+febsst585 <- overlay(esafebc,deltafebr, fun=sum,filename="F:/whales/cmip6/ssp585/FebSST_ssp585.tif",overwrite=T)
 #for aug
-augsst585 <- overlay(esaaugc,deltaaugr, fun=sum,filename="F:/whales/cmip6/ssp585/AugSST_ssp585.tif")
+augsst585 <- overlay(esaaugc,deltaaugr, fun=sum,filename="F:/whales/cmip6/ssp585/AugSST_ssp585.tif",overwrite=T)
 
+#add min model (model3) delta to feb esa 
+feb585.3d <- disaggregate(feb585.3, fact=20)
+i_brick1 <- crop(feb585.3d,extent(180,359.5,-90,90))
+i_brick2 <- crop(feb585.3d,extent(-0.5,180,-90,90))
+extent(i_brick1) <- c(-180,-0.5,-90,90)
+feb585.3dm <- merge(i_brick1,i_brick2)
+febmin585 <- overlay(esafebc,feb585.3dm,fun=sum,filename="F:/whales/cmip6/ssp585/FebSST_ssp585_model3_min.tif",overwrite=T)
 
+#add max model (model4) delta to feb esa
+feb585.4d <- disaggregate(feb585.4, fact=20)
+i_brick1 <- crop(feb585.4d,extent(180,359.5,-90,90))
+i_brick2 <- crop(feb585.4d,extent(-0.5,180,-90,90))
+extent(i_brick1) <- c(-180,-0.5,-90,90)
+feb585.4dm <- merge(i_brick1,i_brick2)
+febmax585 <- overlay(esafebc,feb585.4dm,fun=sum,filename="F:/whales/cmip6/ssp585/FebSST_ssp585_model4_max.tif",overwrite=T)
 
 
 
