@@ -428,11 +428,68 @@ extent(i_brick1) <- c(-180,-0.5,-90,90)
 feb585.4dm <- merge(i_brick1,i_brick2)
 febmax585 <- overlay(esafebc,feb585.4dm,fun=sum,filename="F:/whales/cmip6/ssp585/FebSST_ssp585_model4_max.tif",overwrite=T)
 
+#add each model delta to feb esa
+#for(i in 1:length(febmodelfiles)){
+cores<- detectCores()-1
+cl <- makeCluster(cores, output="") 
+registerDoParallel(cl)
+foreach::foreach(i=1:length(febmodelfiles), .packages=c("raster")) %dopar% {  modeld <- disaggregate(febmodels[[i]], fact=20)
+  i_brick1 <- crop(modeld,extent(180,359.5,-90,90))
+  i_brick2 <- crop(modeld,extent(-0.5,180,-90,90))
+  extent(i_brick1) <- c(-180,-0.5,-90,90)
+  modeldm <- merge(i_brick1,i_brick2)
+  overlay(esafebc,modeldm,fun=sum,filename=paste0("F:/whales/cmip6/ssp585/FebSST_ssp585_",modelnames[i],".tif"))
+}
+stopCluster(cl)
 
 
 
 
+###
+### calculate coarse grid model median sst
+###
+#calculate model median base sst
+#for feb
+febmodelfiles <- list.files("F:/whales/cmip6/hist",pattern="basesst_feb_focal",full.names=T)
+for(i in 1:length(febmodelfiles)){
+  object <- paste0("febbase.", i)
+  r <- raster(febmodelfiles[i],varname="tos")
+  assign(object,r)
+}
+febbasemed <- overlay(febbase.1,febbase.2,febbase.3,febbase.4,febbase.5,febbase.6,febbase.7,febbase.8,febbase.9,febbase.10,
+                      febbase.11,febbase.12,febbase.13,febbase.14,febbase.15,febbase.16,febbase.17,febbase.18,febbase.19,febbase.20,
+                      fun=function(x){median(x,na.rm=T)},filename="F:/whales/cmip6/hist/modelmedian_basesst_feb.tif")
 
+#for aug
+augmodelfiles <- list.files("F:/whales/cmip6/hist",pattern="basesst_aug_focal",full.names=T)
+for(i in 1:length(augmodelfiles)){
+  object <- paste0("augbase.", i)
+  r <- raster(augmodelfiles[i],varname="tos")
+  assign(object,r)
+}
+augbasemed <- overlay(augbase.1,augbase.2,augbase.3,augbase.4,augbase.5,augbase.6,augbase.7,augbase.8,augbase.9,augbase.10,
+                      augbase.11,augbase.12,augbase.13,augbase.14,augbase.15,augbase.16,augbase.17,augbase.18,augbase.19,augbase.20,
+                      fun=function(x){median(x,na.rm=T)},filename="F:/whales/cmip6/hist/modelmedian_basesst_aug.tif")
+
+#open deltas
+deltaaug585 <- brick("F:/whales/cmip6/ssp585/modelmedian_decadedelta_aug.tif")
+deltafeb585 <- brick("F:/whales/cmip6/ssp585/modelmedian_decadedelta_feb.tif")
+deltaaug245 <- brick("F:/whales/cmip6/ssp245/modelmedian_decadedelta_aug.tif")
+deltafeb245 <- brick("F:/whales/cmip6/ssp245/modelmedian_decadedelta_feb.tif")
+
+#add delta to base sst to get coarse grid projections
+#for feb
+febsst585c <- overlay(febbasemed,deltafeb585, fun=sum,filename="F:/whales/cmip6/ssp585/FebSST_ssp585_coarse.tif",overwrite=T)
+febsst245c <- overlay(febbasemed,deltafeb245, fun=sum,filename="F:/whales/cmip6/ssp245/FebSST_ssp245_coarse.tif",overwrite=T)
+
+#for aug
+augsst585c <- overlay(augbasemed,deltaaug585, fun=sum,filename="F:/whales/cmip6/ssp585/AugSST_ssp585_coarse.tif",overwrite=T)
+augsst245c <- overlay(augbasemed,deltaaug245, fun=sum,filename="F:/whales/cmip6/ssp245/AugSST_ssp245_coarse.tif",overwrite=T)
+
+
+#rotate it
+febsst585c <- brick("F:/whales/cmip6/ssp585/FebSST_ssp585_coarse.tif")
+febsst585r <- rotate(febsst585c,filename="F:/whales/cmip6/ssp585/FebSST_ssp585_coarse180.tif", overwrite=T)
 
 
 
