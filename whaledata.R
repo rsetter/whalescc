@@ -116,7 +116,7 @@ for(i in 1:length(modelnames)){
   febbase <- calc(febstack,fun=mean)
   #do focal statistics to fill in coastal gaps
   febbasef <- focal(febbase,w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T,
-                     filename=paste0("modelnames[i], "_basesst_feb_focal.tif"))
+                     filename=paste0(modelnames[i], "_basesst_feb_focal.tif"))
   
   #extract just the augs
   augstack <- stack(r8501[[augs[1:17]]])
@@ -156,7 +156,7 @@ for(i in  1:length(modelnames)){
     febdecadal <- stack(febdecadal,decademean)
   }
   #calculate delta  - difference between model hist base period and decadal mean. save
-  febbase <- raster(paste0("modelnames[i], "_basesst_feb_focal.tif"))
+  febbase <- raster(paste0(modelnames[i], "_basesst_feb_focal.tif"))
   febdeca <- raster()
   for(a in 1:nlayers(febdecadal)){
     f <- focal(febdecadal[[a]],w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T)
@@ -178,14 +178,14 @@ for(i in  1:length(modelnames)){
     augdecadal <- stack(augdecadal,decademean)
   }
   #calculate delta  - difference between model hist base period and decadal mean. save
-  augbase <- raster(paste0("modelnames[i], "_basesst_aug_focal.tif"))
+  augbase <- raster(paste0(modelnames[i], "_basesst_aug_focal.tif"))
   augdeca <- raster()
   for(b in 1:nlayers(augdecadal)){
     f <- focal(augdecadal[[b]],w=matrix(1,nrow=3,ncol=3),fun=mean,na.rm=T,NAonly=T)
     augdeca <- stack(augdeca,f)
   }
   overlay(augdeca,augbase, fun=function(x,y,na.rm=T){return(x-y)},
-                      filename=paste0("modelnames[i],"_decadedelta_aug_focal.tif"))
+                      filename=paste0(modelnames[i],"_decadedelta_aug_focal.tif"))
 }
 
 
