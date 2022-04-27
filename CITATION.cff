@@ -1,0 +1,51 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite it as below."
+authors:
+- family-names: "von Hammerstein"
+  given-names: "Hannah"
+  orcid: "https://orcid.org/0000-0002-4320-6960"
+- family-names: "Setter"
+  given-names: "Renee O."
+  orcid: "https://orcid.org/0000-0002-6651-9054"
+- family-names: "van Aswegen"
+  given-names: "Martin"
+  orcid: "https://orcid.org/0000-0001-6180-967X"
+- family-names: "Currie"
+  given-names: "Jens J."
+  orcid: "https://orcid.org/0000-0001-6084-3091"
+- family-names: "Stack"
+  given-names: "Stephanie H."
+  orcid: "https://orcid.org/0000-0002-7199-8408"
+title: "High-resolution projections of global sea surface temperatures reveal critical warming in humpback whale breeding grounds"
+version: 
+doi: 10.3389/fmars.2022.837772
+date-released: 2022-04-29
+url: "https://www.frontiersin.org/articles/10.3389/fmars.2022.837772/"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "von Hammerstein"
+    given-names: "Hannah"
+    orcid: "https://orcid.org/0000-0002-4320-6960"
+  - family-names: "Setter"
+    given-names: "Renee O."
+    orcid: "https://orcid.org/0000-0002-6651-9054"
+  - family-names: "van Aswegen"
+    given-names: "Martin"
+    orcid: "https://orcid.org/0000-0001-6180-967X"
+  - family-names: "Currie"
+    given-names: "Jens J."
+    orcid: "https://orcid.org/0000-0001-6084-3091"
+  - family-names: "Stack"
+    given-names: "Stephanie H."
+    orcid: "https://orcid.org/0000-0002-7199-8408"
+  doi: "10.3389/fmars.2022.837772"
+  journal: "Frontiers in Marine Science"
+  month: 4
+  start: 
+  end: 
+  title: "High-resolution projections of global sea surface temperatures reveal critical warming in humpback whale breeding grounds"
+  issue: 
+  volume: 9
+  year: 2022
+
