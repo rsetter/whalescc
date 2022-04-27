@@ -1,6 +1,6 @@
 # High-resolution projections of global sea surface temperatures reveal critical warming in humpback whale breeding grounds
 
-https://www.frontiersin.org/articles/10.3389/fmars.2022.837772/abstract
+https://www.frontiersin.org/articles/10.3389/fmars.2022.837772/
 
 Hannah von Hammerstein,  Renee O. Setter,  Martin van Aswegen,  Jens J. Currie and  Stephanie H. Stack
 
