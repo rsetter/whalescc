@@ -11,4 +11,5 @@ Anthropogenic greenhouse gas emissions are triggering changes in global climate 
 List of models and datasets used are listed in paper's Supplementary Table 1. CMIP6 climate data available to download from ESGF: https://esgf-node.llnl.gov/search/cmip6/
 
 
-![image info](./SSP_2-4.5_high-res (2).gif)
+![SSP245 - middle of the road scenario](./SSP_2-4.5.gif)
+![SSP585 - fossil-fueled development](./SSP_5-8.5.gif)
